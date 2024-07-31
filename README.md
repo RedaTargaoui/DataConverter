@@ -1,5 +1,5 @@
 # Data converter
----
+
 ## Description
 
 This project is about a data conversion functionality to integrate into the software used for autism detection research.
