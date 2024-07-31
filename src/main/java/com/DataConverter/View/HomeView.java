@@ -17,6 +17,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,6 +36,7 @@ public class HomeView {
     private JLabel fieldLabel2;
     private JButton launchButton;
     private JLabel messageLabel;
+    private JButton seeResultsButton;
     private JDialog waitingDialog;
 
     /**
@@ -105,7 +107,8 @@ public class HomeView {
         String dataFilePath = dataFileField.getText();
         // Check if empty:
         if (folderPath.isEmpty() || dataFilePath.isEmpty()) {
-            JOptionPane.showMessageDialog(HomePanel, "Please select folder and data file before launching");
+            JOptionPane.showMessageDialog(HomePanel, "Please select folder and data file before launching",
+                    "Error", JOptionPane.ERROR_MESSAGE);
         } else {
             messageLabel.setText("");
             // Start progress bar:
@@ -126,6 +129,9 @@ public class HomeView {
                         boolean success = get();
                         if (success) {
                             waitingDialog.dispose();
+                            // Set to display results:
+                            seeResultsButton.setVisible(true);
+                            openResultsFolder(folderPath + File.separator + "Results");
                             JOptionPane.showMessageDialog(HomePanel, "All files processed successfully");
                         } else {
                             waitingDialog.dispose();
@@ -139,6 +145,23 @@ public class HomeView {
             };
             worker.execute();
         }
+    }
+
+    /**
+     * Open results folder
+     */
+    private void openResultsFolder(String folderPath) {
+        seeResultsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    File folder = new File(folderPath);
+                    Desktop.getDesktop().open(folder);
+                } catch (IOException exception) {
+                    JOptionPane.showMessageDialog(HomePanel, "Failed to open folder", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
     }
 
     /**
