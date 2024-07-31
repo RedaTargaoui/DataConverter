@@ -1,8 +1,19 @@
+/**
+ * Represents the class Home view
+ * @author Ilyass EL MAAIDLI & Reda TARGAOUI
+ * @since 9 January 2024
+ */
 package com.DataConverter.View;
 
-import com.DataConverter.*;
+import com.DataConverter.Controller.DataGetter;
+import com.DataConverter.Controller.SecondTypeDataGetter;
+import com.DataConverter.Model.FileCreator;
+import com.DataConverter.Model.FileTypeChecker;
+import com.DataConverter.Model.FilenameGenerator;
+import com.DataConverter.Model.RowData;
 
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -23,7 +34,8 @@ public class HomeView {
     private JLabel fieldLabel1;
     private JLabel fieldLabel2;
     private JButton launchButton;
-    private JLabel waitingLabel;
+    private JLabel messageLabel;
+    private JDialog waitingDialog;
 
     /**
      * Constructor
@@ -95,15 +107,37 @@ public class HomeView {
         if (folderPath.isEmpty() || dataFilePath.isEmpty()) {
             JOptionPane.showMessageDialog(HomePanel, "Please select folder and data file before launching");
         } else {
+            messageLabel.setText("");
+            // Start progress bar:
+            startProgressBar();
             // Get dataFile name without path:
             File dataFile = new File(dataFilePath);
             String patientsDataFile = dataFile.getName();
             // Start data conversion process:
-            if (dataConversionProcess(folderPath, patientsDataFile)) {
-                JOptionPane.showMessageDialog(HomePanel, "All files processed successfully");
-            } else {
-                JOptionPane.showMessageDialog(HomePanel, "No files found in the directory");
-            }
+            SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+                @Override
+                protected Boolean doInBackground() throws Exception {
+                    return dataConversionProcess(folderPath, patientsDataFile);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        boolean success = get();
+                        if (success) {
+                            waitingDialog.dispose();
+                            JOptionPane.showMessageDialog(HomePanel, "All files processed successfully");
+                        } else {
+                            waitingDialog.dispose();
+                            JOptionPane.showMessageDialog(HomePanel, "No files found in the directory");
+                            messageLabel.setText("");
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+            worker.execute();
         }
     }
 
@@ -113,6 +147,30 @@ public class HomeView {
      */
     public JPanel getHomePanel() {
         return HomePanel;
+    }
+
+    /**
+     * Create and start progress bar
+     */
+    private void startProgressBar() {
+        // Set waiting dialog:
+        waitingDialog = new JDialog((JFrame)null ,"");
+        waitingDialog.setUndecorated(true);
+        waitingDialog.setLayout(new FlowLayout(FlowLayout.CENTER));
+        waitingDialog.setSize(300, 60);
+        waitingDialog.setLocationRelativeTo(HomePanel);
+        // Set progress bar:
+        JProgressBar progressBar = new JProgressBar(JProgressBar.HORIZONTAL);
+        progressBar.setIndeterminate(true);
+        progressBar.setForeground(Color.GREEN);
+        // Set message label:
+        JLabel message = new JLabel("Conversion process is running...");
+        message.setFont(new Font("JetBrains Mono", Font.ITALIC, 16));
+        // Add message and progress bar:
+        waitingDialog.add(message);
+        waitingDialog.add(progressBar);
+        // Display waiting dialog
+        waitingDialog.setVisible(true);
     }
 
     /**
@@ -128,7 +186,6 @@ public class HomeView {
         File[] files = folder.listFiles();
         File[] processedFiles = null;
         List<File> tempList = new ArrayList<>();
-
         // Iterate through files, and verify every file :
         for (File file : files) {
             if (file.isFile() && file.getName().endsWith(".xlsx") && !file.getName().equals(patientsDataFile)) {
@@ -143,7 +200,6 @@ public class HomeView {
         processedFiles = tempList.toArray(new File[0]);
 
         if (processedFiles != null) {
-            //****String outputFolderPath = folderPath + "../Results" + File.separator;
             // Set output folder path :
             String outputFolderPath = folderPath + File.separator + "Results" + File.separator;
             // Create output folder :
@@ -171,13 +227,11 @@ public class HomeView {
                 // Waiting for tasks to finish...
             }
 
-            //System.out.println("\nAll files processed successfully");
             long endTime = System.currentTimeMillis();
-            System.out.println("\n\nTotal Execution time : " + ((endTime - startTime) / 1000.0));
+            messageLabel.setText("Process finished, Execution time : " + ((endTime - startTime) / 1000.0));
             return true;
         }
         else {
-            //System.out.println("\nNo files found in the directory.");
             return false;
         }
     }
@@ -191,7 +245,6 @@ public class HomeView {
      */
     private static void processFile(File file, String folderPath, String outputFileInfo, String outputFolderPath) {
         try {
-            long startTime = System.currentTimeMillis();
             // Get filename :
             String inputFileName = file.getName();
             // Get patient code :
@@ -217,21 +270,10 @@ public class HomeView {
             FileCreator.createFile(outputFolderPath + outputFilename + ".xlsx", rowDataList);
 
             System.out.println("File '" + inputFileName + "' Processed successfully ");
-            long endTime = System.currentTimeMillis();
-            System.out.println("in Execution time : " + ((endTime - startTime) / 1000.0)+"\n");
 
         } catch (Exception e) {
             System.out.println(file+"*************");
             e.printStackTrace();
         }
-    }
-
-    public static void main(String[] args) {
-        JFrame frame = new JFrame("Data Converter");
-        frame.setContentPane(new HomeView().getHomePanel());
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(800, 300);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
     }
 }

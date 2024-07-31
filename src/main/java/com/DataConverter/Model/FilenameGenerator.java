@@ -3,7 +3,7 @@
  * @author Reda TARGAOUI & Ilyass EL MAAIDLI
  * @since 5 october 2023
  */
-package com.DataConverter;
+package com.DataConverter.Model;
 
 import java.io.FileInputStream;
 import java.io.IOException;

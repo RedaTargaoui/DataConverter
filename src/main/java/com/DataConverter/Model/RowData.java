@@ -3,7 +3,7 @@
  * @author Reda TARGAOUI & Ilyass EL MAAIDLI
  * @since 16 november 2023
  */
-package com.DataConverter;
+package com.DataConverter.Model;
 
 public class RowData {
     // Attributes :

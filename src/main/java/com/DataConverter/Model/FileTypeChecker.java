@@ -3,7 +3,7 @@
  * @author Ilyass EL MAAIDLI & Reda TARGAOUI
  * @since 05 december 2023
  */
-package com.DataConverter;
+package com.DataConverter.Model;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;

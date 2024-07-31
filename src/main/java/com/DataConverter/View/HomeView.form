@@ -94,7 +94,7 @@
           <text value="Launch"/>
         </properties>
       </component>
-      <component id="11502" class="javax.swing.JLabel" binding="waitingLabel">
+      <component id="2ebb4" class="javax.swing.JLabel" binding="messageLabel">
         <constraints>
           <grid row="6" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="0" fill="0" indent="0" use-parent-layout="false"/>
         </constraints>
@@ -102,8 +102,7 @@
           <background color="-1509889"/>
           <font name="JetBrains Mono" size="20" style="3"/>
           <foreground color="-15342329"/>
-          <text value=""/>
-          <visible value="true"/>
+          <text value=" "/>
         </properties>
       </component>
     </children>

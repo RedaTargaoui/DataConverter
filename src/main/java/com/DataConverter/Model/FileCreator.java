@@ -3,8 +3,9 @@
  * @author Ilyass EL MAAIDLI & Reda TARGAOUI
  * @since 18 october 2023
  */
-package com.DataConverter;
+package com.DataConverter.Model;
 
+import com.DataConverter.Controller.DataWriter;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;

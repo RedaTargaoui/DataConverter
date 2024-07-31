@@ -1,13 +1,15 @@
 /**
  * Represents the class that gets data from file
- * @author Reda TARGAOUI & Ilyass EL MAAIDLI
- * @since 5 october 2023
+ * @author Ilyass EL MAAIDLI & Reda TARGAOUI
+ * @since 05 december 2023
  */
-package com.DataConverter;
+package com.DataConverter.Controller;
 
+import com.DataConverter.Model.RowData;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
+import org.apache.poi.xssf.model.SharedStringsTable;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
@@ -17,16 +19,16 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.List;
 
-public class DataGetter {
+public class SecondTypeDataGetter {
 
     /**
-     * Extracts data from the specified .xlsx file (with first xml structure) and store data in a list
+     * Extracts data from the specified .xlsx file (with second xml structure) and store data in a list
      * @param filePath File path
      * @param rowDataList The List to store data
      * @param patientCode patient code
      * @throws Exception Throws an exception if any error occurs during the parsing process
      */
-    public static void getData(String filePath, List<RowData> rowDataList, String patientCode) throws Exception {
+    public static void getData(String filePath, List<RowData> rowDataList, String patientCode) throws Exception{
         // needed column indices
         final int[] RT = {-2};
         final int[] GPX = {-2};
@@ -34,129 +36,110 @@ public class DataGetter {
         final int[] PDL = {-2};
         final int[] PDR = {-2};
         final int[] PMN = {-2};
-
         //To prevent zipBomb because we are working with large files
         ZipSecureFile.setMinInflateRatio(0.005);
         // Open Packaging Convention for managing XML-based documents :
         OPCPackage opcPackage = OPCPackage.open(new File(filePath));
         // To open XML documents :
         XSSFReader xssfReader = new XSSFReader(opcPackage);
-        // Obtain the input stream for the first sheet in the workbook :
+        // Retrieve the SharedStringsTable from the XSSFReader instance
+        // The SharedStringsTable stores unique strings used in the Excel workbook
+        SharedStringsTable sharedStringsTable = (SharedStringsTable) xssfReader.getSharedStringsTable();
+        // Obtain the input stream for the first sheet in the workbook:
         InputStream sheet = xssfReader.getSheetsData().next();
-        // Create an XML reader for parsing the XML data :
+        // Create an XML reader for parsing the XML data:
         XMLReader xmlReader = XMLReaderFactory.createXMLReader();
-        // Display patient code :
+        // Display patient code:
         System.out.println("Generating file for patient : " + patientCode);
-
-
-        // The content handler to process XML elements :
+        // Set the content handler to process XML elements:
         xmlReader.setContentHandler(new DefaultHandler() {
-            // Flags to determine type :
-            boolean isNumeric = false;
-            boolean isString = false;
-            // Flag to skip first row :
-            boolean skipFirstRow = true;
+            // Flags to determine the target column and string type:
             boolean isTargetColumn = false;
-            // To store current cell value :
+            boolean isStringType = false;
+            // Variable to store the cell value :
             String cellValue = "";
             // To keep track of column index :
             int currentColumnIndex = -1;
             // RowData object to store value in a row :
             RowData rowData = null;
+            // Flag to skip first row (contains column titles) :
+            boolean skipFirstRow = true;
+            int  nbligne=0;
 
             /**
-             * Called at the start of an XML element
+             * Receive notification of the start of an XML element during the parsing process
              * @param uri The Uniform Resource Identifier of the namespace associated with the element
              * @param localName The local name (without prefix) of the element
              * @param name The qualified name (with prefix) of the element
-             * @param attributes The attributes attached to the element
+             * @param attributes The attributes attached to the element, if any
              */
             public void startElement(String uri, String localName, String name, Attributes attributes) {
-                if ("x:c".equals(name)) {
-                    // Get cell type :
-                    String cellType = attributes.getValue("t");
-                    // Check type :
-                    isNumeric = "n".equals(cellType);
-                    isString = cellType != null && "inlineStr".equals(cellType);
+                // Check if the current element is a cell :
+                if (name.equals("c")) {
+
+                    // Get 'r' attribute :
+                    String column = attributes.getValue("r");
+                    // Get current column index :
+                    currentColumnIndex = getColIndexFromCellReference(column);
                     // Set isTargetColumn flag :
                     isTargetColumn = (currentColumnIndex == RT[0] || currentColumnIndex == GPX[0] ||
                             currentColumnIndex == GPY[0] || currentColumnIndex == PDL[0] || currentColumnIndex == PDR[0] ||
                             currentColumnIndex == PMN[0]);
+                    // Get 't' attribute :
+                    String cellType = attributes.getValue("t");
+                    // Set isStringType flag :
+                    isStringType = cellType != null && cellType.equals("s");
+
+
+                    if (isStringType && skipFirstRow &&  !cellValue.isEmpty()) {
+                        int idx = Integer.parseInt(cellValue);
+                        cellValue = sharedStringsTable.getItemAt(idx).toString();
+                        updateColumnIndices(cellValue, currentColumnIndex-1);
+                    }
                     // Initialize cellValue :
                     cellValue = "";
+                }
+                // If it's the beginning of a row, and we already skipped first row :
+                else if ("row".equals(name) && !skipFirstRow) {
+                        // Initialize a new RowData for the next row :
+                        rowData = new RowData();
                 }
             }
 
             /**
-             * Called when character data is encountered within an element
+             * Receive notification of character data within an element.
              * @param ch The array containing the characters
              * @param start The starting position in the character array
              * @param length The number of characters to use from the character array
              */
             public void characters(char[] ch, int start, int length) {
-
                 cellValue += new String(ch, start, length);
             }
 
             /**
-             * Called at the end of an XML element
+             * Receive notification of the end of an XML element
              * @param uri The Uniform Resource Identifier of the namespace associated with the element
              * @param localName The local name (without prefix) of the element
              * @param name The qualified name (with prefix) of the element
              */
             public void endElement(String uri, String localName, String name) {
-                // If it's a numeric value :
-                if ("x:v".equals(name)) {
-                    if (isNumeric) {
-                        setColumnValue(currentColumnIndex, cellValue, rowData);
-                    }
-                    cellValue = "";
-                }
-                // If its a cell, increment column index :
-                else if ("x:c".equals(name)) {
-                    currentColumnIndex++;
-                }
-                // If it's a string value :
-                else if ("x:is".equals(name)) {
-                    if (isString) {
-                        //If it's the first row, search for the column indexes that we need
-                        if(skipFirstRow){
-                            updateColumnIndices(cellValue, currentColumnIndex);
-                        }else {
-                            if (isTargetColumn) {
-                                setColumnValue(currentColumnIndex, cellValue, rowData);
-                            }
-                        }
-
-                    }
-                    cellValue = "";
-                }
-                // If it's the end of row :
-                else if ("x:row".equals(name)) {
-                    // If skipFirstRow flag is false :
-                    if (!skipFirstRow) {
-                        // Check if object is not empty and the conditions for image name is met :
-                        if (rowData != null && !(rowData.getImage().isEmpty() || rowData.getImage().contains("croix"))) {
-                            // Add object to list :
-                            rowDataList.add(rowData);
-                        }
-                    }
-                    // If skipFirstRow flag is true, make it false :
-                    else {
+                // Check if we reached the end of a row (end of the "row" element) :
+                if ("row".equals(name)) {
+                    // After Processing first row :
+                    if(skipFirstRow){
                         skipFirstRow = false;
                         /*
                         //Just for tests
                         System.out.println("After 1 row: "+filePath);
-                        System.out.println(RT[0]+1);
-                        System.out.println(GPX[0]+1);
-                        System.out.println(GPY[0]+1);
-                        System.out.println(PDL[0]+1);
-                        System.out.println(PDR[0]+1);
-                        System.out.println(PMN[0]+1);
-                        System.out.println("\n \n");
+                        System.out.println(RT[0]);
+                        System.out.println(GPX[0]);
+                        System.out.println(GPY[0]);
+                        System.out.println(PDL[0]);
+                        System.out.println(PDR[0]);
+                        System.out.println(PMN[0]);
                         */
 
-                        //Check if we did find all the columns
+                        //Check if we did find  all the columns
                         if(RT[0] ==-2 || GPX[0] ==-2 || GPY[0] ==-2 || PDL[0] ==-2 || PDR[0] ==-2 || PMN[0] ==-2){
                             try {
                                 throw new Exception("Error: The required column does not exist in the Excel file. The program has stopped.\n File: " + filePath);
@@ -164,13 +147,32 @@ public class DataGetter {
                                 throw new RuntimeException(e);
                             }
                         }
-                    }
-                    // Initialize rowData object and column index :
-                    rowData = new RowData();
-                    currentColumnIndex = -1;
-                }
-            }
+                    }else {
+                        // If the rowData is not empty and the condition for image name is met, add it to the rowDataList :
+                        if (rowData != null && !(rowData.getImage().isEmpty() || rowData.getImage().contains("croix"))) {
+                            rowDataList.add(rowData);
+                        }
 
+                        // Initialize rowData for the next row :
+                        rowData = new RowData();
+                    }
+                }
+                // If we reached one of our target columns :
+                else if (isTargetColumn && rowData != null) {
+                    // Get cell value :
+                    if (isStringType) {
+                        int idx = Integer.parseInt(cellValue);
+                        cellValue = sharedStringsTable.getItemAt(idx).toString();
+                    }
+
+                    // Set the value in the correct attribute of rowData object :
+                    setColumnValue(currentColumnIndex, cellValue, rowData);
+                }
+
+                // Reset flag isTargetColumn and currentColumnIndex :
+                isTargetColumn = false;
+                currentColumnIndex = -1;
+            }
 
             /**
              * To set the value in the correct attribute of RowData based on the column index
@@ -199,6 +201,21 @@ public class DataGetter {
             }
 
             /**
+             * Convert the Excel cell reference string to the corresponding column index
+             * @param cellReference The cell reference string, e.g., "A1" or "B2"
+             * @return The index of the column corresponding to the cell reference
+             */
+            private int getColIndexFromCellReference(String cellReference) {
+                int sum = 0;
+                for (int i = 0; i < cellReference.length(); i++) {
+                    if (Character.isLetter(cellReference.charAt(i))) {
+                        sum = sum * 26 + cellReference.charAt(i) - 'A' + 1;
+                    }
+                }
+                return sum - 1;
+            }
+
+            /**
              * Updates the column indices based on cell values.
              *
              * @param cellValue            Cell value indicating column information
@@ -219,6 +236,7 @@ public class DataGetter {
                     PMN[0] = currentColumnIndex;
                 }
             }
+
         });
 
         // Initiate the parsing of the XML data :
@@ -227,6 +245,6 @@ public class DataGetter {
         // Close the input stream for the sheet and close opcPackage :
         sheet.close();
         opcPackage.close();
-    }
 
+    }
 }
